@@ -1,4 +1,5 @@
 import itertools
+import os
 import threading
 import time
 
@@ -40,23 +41,31 @@ class BruteForce:
     def brute_force(self, max_length, charset, password, output, db_update):
         output(f"Starting attack on {password}...")
 
-        #Try the 2 million passwords first.
-        with open("../Resources/2151220-passwords.txt", "r") as f:
-            for line in f:
-                self.counter += 1
-                if self.stop_event.is_set():
-                    return
-                self.pause_event.wait()
+        # Check a password wordlist before starting character-by-character brute force.
+        # The original team project used a large 2M+ password file. This portfolio
+        # version includes a small sample list so the repository stays lightweight.
+        resource_dir = os.path.join(os.path.dirname(__file__), "..", "Resources")
+        full_wordlist = os.path.join(resource_dir, "2151220-passwords.txt")
+        sample_wordlist = os.path.join(resource_dir, "common-passwords-sample.txt")
+        wordlist_path = full_wordlist if os.path.exists(full_wordlist) else sample_wordlist
 
-                test = line.strip()  # remove newline
-                if test == password:
-                    output(f"Found password in password file: {test}")
-                    output(f"Number of attempts: {self.counter}")
-                    self.elapsed_time += time.time() - self.start_time
-                    output(f"Time: {self.elapsed_time:.2f} seconds.")
-                    db_update(password, self.elapsed_time, self.counter)
-                    self.counter = 1
-                    return
+        if os.path.exists(wordlist_path):
+            with open(wordlist_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    self.counter += 1
+                    if self.stop_event.is_set():
+                        return
+                    self.pause_event.wait()
+
+                    test = line.strip()
+                    if test == password:
+                        output(f"Found password in password file: {test}")
+                        output(f"Number of attempts: {self.counter}")
+                        self.elapsed_time += time.time() - self.start_time
+                        output(f"Time: {self.elapsed_time:.2f} seconds.")
+                        db_update(password, self.elapsed_time, self.counter)
+                        self.counter = 1
+                        return
 
         #Up to the max length of the password allowed, try the full charset with one character, then 2, so on.
         for length in range(1, max_length + 1):
